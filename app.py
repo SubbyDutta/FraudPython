@@ -8,9 +8,7 @@ app = FastAPI(title="Fraud Detection Service")
 # Load model
 model = joblib.load("model.pkl")
 
-# ==========================
-# Request Models
-# ==========================
+
 class Tx(BaseModel):
     amount: float
     hour: int
@@ -23,9 +21,7 @@ class Tx(BaseModel):
 class BatchRequest(BaseModel):
     transactions: list[Tx]
 
-# ==========================
-# Feature Engineering
-# ==========================
+
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["high_amount"] = (df["amount"] > df["balance"] * 1.5).astype(int)
     df["night_transaction"] = ((df["hour"] < 6) | (df["hour"] > 22)).astype(int)
@@ -36,9 +32,7 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["balance_to_avg_ratio"] = df["balance"] / (df["avg_amount"] + 1)
     return df
 
-# ==========================
-# Prediction Endpoint
-# ==========================
+
 @app.post("/predict")
 def predict(batch: BatchRequest):
     df = pd.DataFrame([t.dict() for t in batch.transactions])
@@ -65,7 +59,7 @@ def predict(batch: BatchRequest):
 
     return {"results": results}
 
-# Optional health check
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
