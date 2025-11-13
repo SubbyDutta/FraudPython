@@ -133,4 +133,4 @@ print("\nClassification Report:\n", classification_report(y_test, preds, digits=
 print(f"Fraud rate in dataset: {df['label'].mean():.4f}")
 
 joblib.dump(clf, "model.pkl")
-print("✅ model.pkl saved successfully (feature names match FastAPI app)")
+
