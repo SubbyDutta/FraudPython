@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -7,15 +6,15 @@ from imblearn.over_sampling import SMOTE
 from xgboost import XGBClassifier
 import joblib
 
-
-AMOUNT_THRESHOLD = 50_000       
-BALANCE_EXEMPTION = 60_000      
-AVG_AMOUNT_EXEMPTION = 50_000   
+AMOUNT_THRESHOLD = 50_000        
+BALANCE_EXEMPTION = 60_000
+AVG_AMOUNT_EXEMPTION = 50_000
 RELATIVE_TO_BALANCE_MULT = 1.2
 RELATIVE_TO_AVG_MULT = 3.0
 RANDOM_FRAUD_RATE = 0.01
 
 
+CRITICAL_BALANCE_MULT = 0.5    
 np.random.seed(42)
 N = 2_000_000
 n_users = 20_000
@@ -46,6 +45,9 @@ user_has_large_balance_exempt = balance >= BALANCE_EXEMPTION
 user_has_large_avg_exempt = avg_amount >= AVG_AMOUNT_EXEMPTION
 user_exempt = user_has_large_balance_exempt | user_has_large_avg_exempt
 
+
+rule_critical_low_balance = (amount > AMOUNT_THRESHOLD) & (balance < CRITICAL_BALANCE_MULT * amount)
+
 rule_foreign_highrisk_night = (
     (is_foreign == 1)
     & (is_high_risk == 1)
@@ -58,8 +60,10 @@ rule_amount_gt_balance_low_bal = (amount > balance * 1.3) & (balance < 500)
 rule_foreign_large_vs_avg = (is_foreign == 1) & (is_large_amount) & (amount > 2 * avg_amount)
 rule_random = (np.random.rand(N) < RANDOM_FRAUD_RATE)
 
+
 fraud = (
-    (rule_foreign_highrisk_night & (amount > balance * 1.5))
+    rule_critical_low_balance
+    | (rule_foreign_highrisk_night & (amount > balance * 1.5))
     | ((rule_amount_vs_avg | rule_foreign_large_vs_avg | rule_amount_gt_balance_low_bal) & (~user_exempt))
     | rule_random
 ).astype(int)
@@ -94,14 +98,18 @@ df["amount_to_avg_ratio"] = df["amount"] / (df["avg_amount"] + 1)
 df["balance_to_avg_ratio"] = df["balance"] / (df["avg_amount"] + 1)
 
 
+df["critical_low_balance"] = (
+    (df["amount"] > AMOUNT_THRESHOLD) & (df["balance"] < CRITICAL_BALANCE_MULT * df["amount"])
+).astype(int)
+
 features = [
     "amount", "hour", "is_foreign", "is_high_risk", "userId", "balance",
     "avg_amount", "high_amount", "night_transaction", "amount_hour_ratio",
-    "foreign_high", "risk_high", "amount_to_avg_ratio", "balance_to_avg_ratio"
-]
+    "foreign_high", "risk_high", "amount_to_avg_ratio", "balance_to_avg_ratio",
+    "critical_low_balance", ]
+
 X = df[features]
 y = df["label"]
-
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
@@ -125,7 +133,6 @@ clf = XGBClassifier(
 )
 
 clf.fit(X_train_res, y_train_res)
-
 
 preds = clf.predict(X_test)
 print("Confusion Matrix:\n", confusion_matrix(y_test, preds))
