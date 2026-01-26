@@ -75,7 +75,7 @@ def predict(batch: BatchRequest):
     for i, row in df.iterrows():
         results.append(
             {
-                "input": row.to_dict(),  # includes engineered features; change if you want only raw input
+                "input": row.to_dict(), 
                 "fraud_probability": float(probs[i]),
                 "is_fraud": int(labels[i]),
             }
